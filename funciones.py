@@ -114,15 +114,15 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
         for linea in cuartos_csv:
             nombre_cuarto, aforo, mac1, mac2, mac3 = linea.rstrip().split(",")
             if nombre_cuarto == cuarto:
-                aforo_maximo = int(aforo)
+                aforo_max = int(aforo)
                 macs_ap = {mac1, mac2, mac3}
 
     with open(dataset) as dt:
         next(dt)
         mismo_segundo = defaultdict(set)
         lista_alertas = []
-        gente_minuto = 0
-        alerta_previa = datetime(1, 1, 1)
+        mac_min: Set[str] = set()
+        alerta_prev = datetime(1, 1, 1)
 
         # inicializar variables usando la primera linea
         prim_linea = next(dt)
@@ -135,7 +135,7 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
                 mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
             else:
                 # Añadimos el número de dispositivos que hubo en el último segundo
-                gente_minuto += sum(1 for n in mismo_segundo.values() if n == macs_ap)
+                mac_min.update(k for k, v in mismo_segundo.items() if v == macs_ap)
 
                 # Liberamos memoria y nos preparamos para la siguiente iteración
                 mismo_segundo.clear()
@@ -146,18 +146,17 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
                 minuto_actual = datetime.fromtimestamp(timestamp).minute
                 if minuto_actual != minuto_previo:
                     minuto_previo = minuto_actual
-                    fecha_hora = datetime.fromtimestamp(timestamp - 1)
-                    if (
-                        gente_minuto > aforo_maximo
-                        and fecha_hora - alerta_previa > timedelta(minutes=10)
+                    fecha_hr = datetime.fromtimestamp(timestamp - 1)
+                    if len(mac_min) > aforo_max and fecha_hr - alerta_prev > timedelta(
+                        minutes=10
                     ):
                         lista_alertas.append(
-                            fecha_hora.strftime("%Y-%m-%d %H:%M")
-                            + f", {gente_minuto} personas"
+                            fecha_hr.strftime("%Y-%m-%d %H:%M")
+                            + f", {len(mac_min)} personas"
                         )
-                        alerta_previa = fecha_hora
+                        alerta_prev = fecha_hr
                     # reiniciamos el contador de gente
-                    gente_minuto = 0
+                    mac_min.clear()
 
             # Al final de cada iteración actualizamos el segundo previo
             segundo_previo = linea[SLICE_TIMESTAMP]

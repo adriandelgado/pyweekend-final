@@ -24,8 +24,8 @@ def flujo_personas(dataset: str, fecha: date) -> int:
                                  pero antes de las 17:30
     """
     anio, mes, dia = fecha.year, fecha.month, fecha.day  # `año` también es aceptado
-    inicio_jornada = datetime(anio, mes, dia, 8, 0)
-    fin_jornada = datetime(anio, mes, dia, 17, 30)
+    inicio_jornada = int(datetime(anio, mes, dia, 8, 0).timestamp())
+    fin_jornada = int(datetime(anio, mes, dia, 17, 30).timestamp())
 
     with open(dataset) as dt:
         next(dt)
@@ -33,8 +33,7 @@ def flujo_personas(dataset: str, fecha: date) -> int:
         for linea in dt:
             mac_cliente = linea[SLICE_MAC_CLIENTE]
             timestamp = int(linea[SLICE_TIMESTAMP])
-            fecha_hora = datetime.fromtimestamp(timestamp)
-            if inicio_jornada <= fecha_hora <= fin_jornada:
+            if inicio_jornada <= timestamp <= fin_jornada:
                 personas.add(mac_cliente)
             else:
                 personas.discard(mac_cliente)

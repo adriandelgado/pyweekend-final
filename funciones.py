@@ -182,12 +182,18 @@ def generar_animacion(dataset: str, cuartos_espol: str, personas: List[str]) -> 
 
 
 # Tarea 5
-def reporte_completo(dataset: str, cuartos_espol: str) -> None:
+def reporte_rango(
+    dataset: str,
+    cuartos_espol: str,
+    inicio: datetime,
+    fin: datetime,
+) -> None:
     """
-    Para un rango específico de horas-minutos, mostrar un contador
-    minuto a minuto de la cantidad de personas que se encuentra en cada cuarto.
-    Si la ocupación supera el aforo máximo del cuarto,
-    deberá pintar el cuarto de color rojo.
+    Para un rango específico de horas-minutos, mostrar una animación
+    del movimiento (cambio de cuartos) en el edificio para una lista
+    de hasta 5 personas (especificadas por el usuario).
+    Como respuesta a esta tarea debe adjuntar el video de la animación,
+    la misma que debe tener una duración máxima de 1 minuto.
     """
     with open(cuartos_espol) as cuartos_csv:
         next(cuartos_csv)
@@ -202,13 +208,22 @@ def reporte_completo(dataset: str, cuartos_espol: str) -> None:
         mismo_segundo = defaultdict(set)
         counter_minuto: Dict = {k: set() for k in dic_cuartos.keys()}
 
-        # inicializar variables usando la primera linea
-        prim_linea = next(dt)
-        segundo_previo = prim_linea[SLICE_TIMESTAMP]
-        minuto_previo = datetime.fromtimestamp(int(segundo_previo)).minute
-        mismo_segundo[prim_linea[SLICE_MAC_CLIENTE]].add(prim_linea[SLICE_MAC_AP])
+        # Ignorar las lineas previas al inicio solicitado
+        try:
+            ignorar = True
+            while ignorar:
+                prim_linea = next(dt)
+                segundo_previo = prim_linea[SLICE_TIMESTAMP]
+                if int(segundo_previo) >= inicio.timestamp():
+                    ignorar = False
+            minuto_previo = datetime.fromtimestamp(int(segundo_previo)).minute
+            mismo_segundo[prim_linea[SLICE_MAC_CLIENTE]].add(prim_linea[SLICE_MAC_AP])
+        except:
+            print("Fecha de inicio fuera de registro")
+            return None
 
-        for linea in dt:
+        dentro_de_rango = True
+        while (linea := next(dt, "end")) != "end" and dentro_de_rango:
             if segundo_previo == linea[SLICE_TIMESTAMP]:
                 mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
             else:
@@ -226,9 +241,12 @@ def reporte_completo(dataset: str, cuartos_espol: str) -> None:
                 # Cada que cambia el segundo verificamos si ha pasado un minuto
                 timestamp = int(linea[SLICE_TIMESTAMP])
                 minuto_actual = datetime.fromtimestamp(timestamp).minute
-                if minuto_actual != minuto_previo:
+                if timestamp > fin.timestamp():
+                    dentro_de_rango = False
+                elif minuto_actual != minuto_previo:
                     minuto_previo = minuto_actual
-                    print(
+                    bloque = []
+                    bloque.append(
                         datetime.fromtimestamp(int(segundo_previo)).strftime(
                             "%Y-%m-%d %H:%M"
                         )
@@ -241,14 +259,98 @@ def reporte_completo(dataset: str, cuartos_espol: str) -> None:
                         else:
                             reporte[cuarto] = (len(clientes), "normal")
                     for i in reporte.items():
-                        print(i)
+                        bloque.append(i)
+                    yield bloque
 
                     # reiniciamos el contador de gente y el reporte del minuto
                     for clientes in counter_minuto.values():
                         clientes.clear()
                     reporte.clear()
+                    bloque.clear()
 
             # Al final de cada iteración actualizamos el segundo previo
             segundo_previo = linea[SLICE_TIMESTAMP]
 
     return None
+
+
+# Tarea 6
+def tiempo_real(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
+    """
+    Dado un cuarto, reporta todos los momentos en los que el cuarto superó
+    su aforo máximo, con un mínimo de 10 minutos entre cada alerta.
+
+        Parámetros:
+                  dataset (str): Ubicación del log de conexiones
+            cuartos_espol (str): Ubicación del archivo csv con el aforo y APs
+                                 de cada cuarto
+                   cuarto (str): Nombre del cuarto que se desea recibir alertas
+
+        Retorna:
+            lista_alertas (list[str]): Lista de los momentos en los que el
+                                       cuarto indicado superó su aforo máximo.
+            Formato:
+                [
+                    "AAAA-MM-DD HH:MM, {cantidad} personas",
+                    "AAAA-MM-DD HH:MM, {cantidad} personas",
+                    ...
+                ]
+    """
+    with open(cuartos_espol) as cuartos_csv:
+        next(cuartos_csv)
+        for linea in cuartos_csv:
+            nombre_cuarto, aforo, mac1, mac2, mac3 = linea.rstrip().split(",")
+            if nombre_cuarto == cuarto:
+                aforo_max = int(aforo)
+                macs_ap = {mac1, mac2, mac3}
+
+    with open(dataset) as dt:
+        next(dt)
+        mismo_segundo = defaultdict(set)
+        lista_alertas = []
+        mac_min: Set[str] = set()
+        alert_prev = datetime(1, 1, 1)
+
+        # inicializar variables usando la primera linea
+        prim_linea = next(dt)
+        segundo_previo = prim_linea[SLICE_TIMESTAMP]
+        minuto_previo = datetime.fromtimestamp(int(segundo_previo)).minute
+        mismo_segundo[prim_linea[SLICE_MAC_CLIENTE]].add(prim_linea[SLICE_MAC_AP])
+
+        for linea in dt:
+            if segundo_previo == linea[SLICE_TIMESTAMP]:
+                mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
+            else:
+                # Añadimos el número de dispositivos que hubo en el último segundo
+                for cliente, macs in mismo_segundo.items():
+                    if macs == macs_ap:
+                        mac_min.add(cliente)
+                    else:
+                        mac_min.discard(cliente)
+
+                # Liberamos memoria y nos preparamos para la siguiente iteración
+                mismo_segundo.clear()
+                mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
+
+                # Checkeamos aforo cada segundo
+                fecha_hr = datetime.fromtimestamp(int(segundo_previo))
+                if len(mac_min) > aforo_max and fecha_hr - alert_prev >= timedelta(
+                    minutes=10
+                ):
+                    lista_alertas.append(
+                        fecha_hr.strftime("%Y-%m-%d %H:%M")
+                        + f", {len(mac_min)} personas"
+                    )
+                    alert_prev = fecha_hr
+
+                # Cada que pasa un minuto reiniciamos estadísticas
+                timestamp = int(linea[SLICE_TIMESTAMP])
+                minuto_actual = datetime.fromtimestamp(timestamp).minute
+                if minuto_actual != minuto_previo:
+                    minuto_previo = minuto_actual
+                    mac_min.clear()
+
+            # Al final de cada iteración actualizamos el segundo previo
+            segundo_previo = linea[SLICE_TIMESTAMP]
+
+    return lista_alertas

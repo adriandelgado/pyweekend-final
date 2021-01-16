@@ -1,6 +1,6 @@
 from datetime import datetime, date, timedelta
 from collections import defaultdict, Counter
-from typing import Optional, Set, List
+from typing import Optional, Set, List, Dict
 import typing as ty
 
 SLICE_TIMESTAMP = slice(0, 10)
@@ -122,7 +122,7 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
         mismo_segundo = defaultdict(set)
         lista_alertas = []
         mac_min: Set[str] = set()
-        alerta_prev = datetime(1, 1, 1)
+        alert_prev = datetime(1, 1, 1)
 
         # inicializar variables usando la primera linea
         prim_linea = next(dt)
@@ -135,7 +135,11 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
                 mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
             else:
                 # Añadimos el número de dispositivos que hubo en el último segundo
-                mac_min.update(k for k, v in mismo_segundo.items() if v == macs_ap)
+                for cliente, macs in mismo_segundo.items():
+                    if macs == macs_ap:
+                        mac_min.add(cliente)
+                    else:
+                        mac_min.discard(cliente)
 
                 # Liberamos memoria y nos preparamos para la siguiente iteración
                 mismo_segundo.clear()
@@ -146,15 +150,16 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
                 minuto_actual = datetime.fromtimestamp(timestamp).minute
                 if minuto_actual != minuto_previo:
                     minuto_previo = minuto_actual
-                    fecha_hr = datetime.fromtimestamp(timestamp - 1)
-                    if len(mac_min) > aforo_max and fecha_hr - alerta_prev > timedelta(
+                    fecha_hr = datetime.fromtimestamp(int(segundo_previo))
+                    fecha_hr.replace(second=59)
+                    if len(mac_min) > aforo_max and fecha_hr - alert_prev >= timedelta(
                         minutes=10
                     ):
                         lista_alertas.append(
                             fecha_hr.strftime("%Y-%m-%d %H:%M")
                             + f", {len(mac_min)} personas"
                         )
-                        alerta_prev = fecha_hr
+                        alert_prev = fecha_hr
                     # reiniciamos el contador de gente
                     mac_min.clear()
 
@@ -195,7 +200,7 @@ def reporte_completo(dataset: str, cuartos_espol: str) -> None:
         next(dt)
 
         mismo_segundo = defaultdict(set)
-        counter_minuto: ty.Counter[str] = Counter()
+        counter_minuto: Dict = {k: set() for k in dic_cuartos.keys()}
 
         # inicializar variables usando la primera linea
         prim_linea = next(dt)
@@ -209,9 +214,10 @@ def reporte_completo(dataset: str, cuartos_espol: str) -> None:
             else:
                 # Añadimos el número de veces que aparece cada cuarto
                 # en el diccionario `mismo_segundo`
-                counter_minuto.update(
-                    str(sorted(macs)) for macs in mismo_segundo.values()
-                )
+                for cliente, macs in mismo_segundo.items():
+                    for conjunto_clientes in counter_minuto.values():
+                        conjunto_clientes.discard(cliente)
+                    counter_minuto[str(sorted(macs))].add(cliente)
 
                 # Liberamos memoria y nos preparamos para la siguiente iteración
                 mismo_segundo.clear()
@@ -223,20 +229,23 @@ def reporte_completo(dataset: str, cuartos_espol: str) -> None:
                 if minuto_actual != minuto_previo:
                     minuto_previo = minuto_actual
                     print(
-                        datetime.fromtimestamp(timestamp - 1).strftime("%Y-%m-%d %H:%M")
+                        datetime.fromtimestamp(int(segundo_previo)).strftime(
+                            "%Y-%m-%d %H:%M"
+                        )
                     )
                     reporte = {f"c-0{i:02}": (0, "normal") for i in range(1, 11)}
-                    for macs, cantidad in counter_minuto.items():
-                        cuarto, aforo_maximo = dic_cuartos[macs]
-                        if cantidad > aforo_maximo:
-                            reporte[cuarto] = (cantidad, "rojo")
+                    for macs_str, clientes in counter_minuto.items():
+                        cuarto, aforo_maximo = dic_cuartos[macs_str]
+                        if len(clientes) > aforo_maximo:
+                            reporte[cuarto] = (len(clientes), "rojo")
                         else:
-                            reporte[cuarto] = (cantidad, "normal")
+                            reporte[cuarto] = (len(clientes), "normal")
                     for i in reporte.items():
                         print(i)
 
                     # reiniciamos el contador de gente y el reporte del minuto
-                    counter_minuto.clear()
+                    for clientes in counter_minuto.values():
+                        clientes.clear()
                     reporte.clear()
 
             # Al final de cada iteración actualizamos el segundo previo

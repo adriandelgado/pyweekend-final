@@ -145,22 +145,22 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
                 mismo_segundo.clear()
                 mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
 
-                # Cada que cambia el segundo verificamos si ha pasado un minuto
+                # Checkeamos aforo cada segundo
+                fecha_hr = datetime.fromtimestamp(int(segundo_previo))
+                if len(mac_min) > aforo_max and fecha_hr - alert_prev >= timedelta(
+                    minutes=10
+                ):
+                    lista_alertas.append(
+                        fecha_hr.strftime("%Y-%m-%d %H:%M")
+                        + f", {len(mac_min)} personas"
+                    )
+                    alert_prev = fecha_hr
+
+                # Cada que pasa un minuto reiniciamos estadísticas
                 timestamp = int(linea[SLICE_TIMESTAMP])
                 minuto_actual = datetime.fromtimestamp(timestamp).minute
                 if minuto_actual != minuto_previo:
                     minuto_previo = minuto_actual
-                    fecha_hr = datetime.fromtimestamp(int(segundo_previo))
-                    fecha_hr.replace(second=59)
-                    if len(mac_min) > aforo_max and fecha_hr - alert_prev >= timedelta(
-                        minutes=10
-                    ):
-                        lista_alertas.append(
-                            fecha_hr.strftime("%Y-%m-%d %H:%M")
-                            + f", {len(mac_min)} personas"
-                        )
-                        alert_prev = fecha_hr
-                    # reiniciamos el contador de gente
                     mac_min.clear()
 
             # Al final de cada iteración actualizamos el segundo previo

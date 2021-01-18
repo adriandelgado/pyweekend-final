@@ -2,6 +2,9 @@ from time import sleep
 from datetime import datetime, date, timedelta
 from collections import defaultdict, Counter
 from typing import Optional, Set, List, Dict
+from random import randint
+import pygame
+import os
 import typing as ty
 
 
@@ -172,7 +175,107 @@ def alertas_aforo(dataset: str, cuartos_espol: str, cuarto: str) -> List[str]:
 
 
 # Tarea 4
-def generar_animacion(dataset: str, cuartos_espol: str, personas: List[str]) -> None:
+def generar_datos(
+    dataset: str,
+    cuartos_espol: str,
+    personas: List[str],
+    inicio: datetime,
+    fin: datetime,
+):
+    """
+    Función Interna
+
+    Para un rango específico de horas-minutos, mostrar una animación
+    del movimiento (cambio de cuartos) en el edificio para una lista
+    de hasta 5 personas (especificadas por el usuario).
+    Como respuesta a esta tarea debe adjuntar el video de la animación,
+    la misma que debe tener una duración máxima de 1 minuto.
+    """
+    with open(cuartos_espol) as cuartos_csv:
+        next(cuartos_csv)
+        dic_cuartos = dict()
+        for linea in cuartos_csv:
+            nombr_cuarto, _, mac1, mac2, mac3 = linea.rstrip().split(",")
+            dic_cuartos[str(sorted([mac1, mac2, mac3]))] = nombr_cuarto
+
+    with open(dataset) as dt:
+        next(dt)
+
+        mismo_segundo = defaultdict(set)
+        counter_minuto: Dict = {k: set() for k in dic_cuartos.keys()}
+
+        # Ignorar las lineas previas al inicio solicitado
+        try:
+            ignorar = True
+            while ignorar:
+                prim_linea = next(dt)
+                segundo_previo = prim_linea[SLICE_TIMESTAMP]
+                if int(segundo_previo) >= inicio.timestamp():
+                    ignorar = False
+            minuto_previo = datetime.fromtimestamp(int(segundo_previo)).minute
+            mismo_segundo[prim_linea[SLICE_MAC_CLIENTE]].add(prim_linea[SLICE_MAC_AP])
+        except:
+            print("Fecha de inicio fuera de registro")
+            return None
+
+        dentro_de_rango = True
+        while (linea := next(dt, "end")) != "end" and dentro_de_rango:
+            if segundo_previo == linea[SLICE_TIMESTAMP]:
+                mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
+            else:
+                # Añadimos el número de veces que aparece cada cuarto
+                # en el diccionario `mismo_segundo`
+                for cliente, macs in mismo_segundo.items():
+                    for conjunto_clientes in counter_minuto.values():
+                        conjunto_clientes.discard(cliente)
+                    counter_minuto[str(sorted(macs))].add(cliente)
+
+                # Liberamos memoria y nos preparamos para la siguiente iteración
+                mismo_segundo.clear()
+                mismo_segundo[linea[SLICE_MAC_CLIENTE]].add(linea[SLICE_MAC_AP])
+
+                # Cada que cambia el segundo verificamos si ha pasado un minuto
+                timestamp = int(linea[SLICE_TIMESTAMP])
+                minuto_actual = datetime.fromtimestamp(timestamp).minute
+                if timestamp > fin.timestamp():
+                    dentro_de_rango = False
+                elif minuto_actual != minuto_previo:
+                    minuto_previo = minuto_actual
+                    bloque = []
+                    bloque.append(
+                        datetime.fromtimestamp(int(segundo_previo)).strftime(
+                            "%Y-%m-%d %H:%M"
+                        )
+                    )
+                    reporte = {f"c-0{i:02}": set() for i in range(1, 11)}
+                    for macs_str, clientes in counter_minuto.items():
+                        cuarto = dic_cuartos[macs_str]
+                        for cli in clientes:
+                            if cli in personas:
+                                reporte[cuarto].add(cli)
+                    for i in reporte.items():
+                        bloque.append(i)
+                    yield bloque
+                    # reiniciamos el contador de gente y el reporte del minuto
+                    for clientes in counter_minuto.values():
+                        clientes.clear()
+                    reporte.clear()
+                    bloque.clear()
+
+            # Al final de cada iteración actualizamos el segundo previo
+            segundo_previo = linea[SLICE_TIMESTAMP]
+
+    return None
+
+
+def generar_animacion(
+    dataset: str,
+    cuartos_espol: str,
+    lista: List[str],
+    inicio: datetime,
+    fin: datetime,
+    dimensiones: dict,
+):
     """
     Para un rango específico de horas-minutos, mostrar una animación
     del movimiento (cambio de cuartos) en el edificio para una lista
@@ -180,7 +283,52 @@ def generar_animacion(dataset: str, cuartos_espol: str, personas: List[str]) -> 
     Como respuesta a esta tarea debe adjuntar el video de la animación,
     la misma que debe tener una duración máxima de 1 minuto.
     """
-    pass
+    lista = lista
+    generador = generar_datos(dataset, cuartos_espol, lista, inicio, fin)
+
+    # lista para poder identificar que numero de mac ingresada se ve en la animacion
+    n_mac = ["mac1", "mac2", "mac3", "mac4", "mac5"]
+
+    pygame.init()
+    FPS = 2
+    clock = pygame.time.Clock()
+    ANCHO, ALTURA = 1008, 282
+    pantalla = pygame.display.set_mode((ANCHO, ALTURA))
+    pygame.display.set_caption("Rastreo de personas")
+    pygame.display.update()
+
+    edificio = pygame.image.load("edificio.png")
+    pantalla.blit(edificio, (0, 0))
+    pygame.display.update()
+
+    fuente = pygame.font.Font(None, 17)  # Se define una fuente
+
+    abierto = True
+    while abierto:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                abierto = False
+                pygame.quit()
+
+        try:
+            datos = next(generador)
+            for i in range(1, len(datos)):
+                cuarto = datos[i][0]
+                anchoi, anchof = dimensiones[cuarto]["ancho"]
+                alturai, alturaf = dimensiones[cuarto]["altura"]
+                posx = randint(anchoi, anchof)
+                posy = randint(alturai, alturaf)
+                for x in datos[i][1]:
+                    indice = lista.index(x)
+                    texto = fuente.render(n_mac[indice], 0, (0, 0, 0), (73, 255, 0))
+                    pantalla.blit(texto, (posx, posy))
+                    pygame.display.update()
+                    clock.tick(FPS)
+            pantalla.blit(edificio, (0, 0))
+            pygame.display.update()
+        except:
+            None
+    return None
 
 
 # Tarea 5
@@ -276,6 +424,70 @@ def reporte_rango(
     return None
 
 
+def alertavista(arch1, arch2, inicio, final):
+    fps = 1
+    clock1 = pygame.time.Clock()
+    pygame.init()
+    ANCHO, ALTURA = 1420, 600
+    pantalla = pygame.display.set_mode((ANCHO, ALTURA))
+    pygame.display.set_caption("Rastreo de personas")
+    pygame.display.update()
+    x = 0
+    y = (ALTURA / 2) - (452 / 2)
+    edificio = pygame.image.load("edificio3.png")
+    pantalla.blit(edificio, (x, y))
+    pygame.display.update()
+    pygame.draw.rect(pantalla, (184, 138, 189), [499, 4, 500, 65], 0)
+    pygame.display.update()
+    fuen = pygame.font.Font(None, 80)
+    texto = fuen.render("Tiempo:", 1, [205, 190, 214])
+    pantalla.blit(texto, (250, 10))
+    pygame.display.update()
+    abierto = True
+    while abierto:
+        generado = reporte_rango(arch1, arch2, inicio, final)
+        for info_fechas in generado:
+            fecha = info_fechas[0]
+            fuen = pygame.font.Font(None, 79)
+            pygame.draw.rect(pantalla, (184, 138, 189), [499, 4, 480, 65], 0)
+            texto_fecha = fuen.render(fecha, 0, [249, 244, 251])
+            pantalla.blit(texto_fecha, (525, 10))
+            pygame.display.update()
+            posiciones = [
+                (50, 142),
+                (304, 150),
+                (552, 148),
+                (101, 383),
+                (480, 381),
+                (776, 142),
+                (1024, 152),
+                (1290, 172),
+                (831, 375),
+                (1202, 370),
+            ]
+            for e in range(1, 11):
+                cuarto1 = info_fechas[e]
+                personas, estado = cuarto1[1]
+                x = posiciones[e - 1][0]
+                y = posiciones[e - 1][1]
+                if estado == "rojo":
+                    pygame.draw.rect(
+                        pantalla, (239, 11, 11), [x - 30, y - 30, 150, 100], 0
+                    )
+                else:
+                    pygame.draw.rect(
+                        pantalla, (255, 255, 255), [x - 30, y - 30, 150, 100], 0
+                    )
+                canti_Personas = fuen.render(str(personas), 0, [0, 0, 0])
+                pantalla.blit(canti_Personas, (x + 5, y))
+                pygame.display.update()
+            clock1.tick(fps)
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+    return
+
+
 # Tarea 6
 def tiempo_real(dataset: str, cuartos_espol: str, cuarto: str):
     """
@@ -343,7 +555,7 @@ def tiempo_real(dataset: str, cuartos_espol: str, cuarto: str):
                         bloque.append(f"{len(disp_presentes)} persona")
                     else:
                         bloque.append(f"{len(disp_presentes)} personas")
-                    bloque.append(f"aforo máximo: {aforo_max}")
+                    bloque.append(f"Aforo Máximo: {aforo_max}")
                     bloque.append("rojo")
                     yield bloque
                 else:
@@ -354,7 +566,7 @@ def tiempo_real(dataset: str, cuartos_espol: str, cuarto: str):
                         bloque.append(f"{len(disp_presentes)} persona")
                     else:
                         bloque.append(f"{len(disp_presentes)} personas")
-                    bloque.append(f"aforo máximo: {aforo_max}")
+                    bloque.append(f"Aforo Máximo: {aforo_max}")
                     bloque.append("verde")
                     yield bloque
                 bloque.clear()
@@ -371,3 +583,50 @@ def tiempo_real(dataset: str, cuartos_espol: str, cuarto: str):
 
             # Al final de cada iteración actualizamos el segundo previo
             segundo_previo = linea[SLICE_TIMESTAMP]
+
+
+def alertas_tiempo_real(dataset, cuartos_espol, cuarto):
+    # clock = pygame.time.Clock()
+    pygame.font.init()
+    pygame.mixer.init()
+
+    ANCHO, ALTURA = 500, 500
+    VENTANA = pygame.display.set_mode((ANCHO, ALTURA))
+    pygame.display.set_caption("Aforo")
+
+    BLANCO = (255, 255, 255)
+    VERDE = (0, 255, 0)
+    ROJO = (255, 0, 0)
+    FUENTE = pygame.font.SysFont("sans-serif", 40)
+
+    run = True
+    generador = tiempo_real(dataset, cuartos_espol, cuarto)
+
+    def draw_window(bloque):
+        fecha_h, num, aforo, color = bloque
+        if color == "verde":
+            VENTANA.fill(VERDE)
+        else:
+            VENTANA.fill(ROJO)
+        # tiempo = FUENTE.render(fecha_h, 1, BLANCO)
+        numero_personas = FUENTE.render(num, 1, BLANCO)
+        aforo_cuarto = FUENTE.render(aforo, 1, BLANCO)
+        # VENTANA.blit(tiempo, ((ANCHO - tiempo.get_width()) / 2, ALTURA / 2 - 150))
+        VENTANA.blit(
+            numero_personas,
+            ((ANCHO - numero_personas.get_width()) / 2, ALTURA / 2 - 100),
+        )
+        VENTANA.blit(
+            aforo_cuarto, ((ANCHO - aforo_cuarto.get_width()) / 2, ALTURA / 2 + 100)
+        )
+
+        pygame.display.update()
+
+    while run:
+        # clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+                pygame.quit()
+
+        draw_window(next(generador))

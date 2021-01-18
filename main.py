@@ -2,166 +2,112 @@ from funciones import (
     flujo_personas,
     triangulacion,
     alertas_aforo,
-    reporte_rango,
-    tiempo_real,
+    generar_animacion,
+    alertavista,
+    alertas_tiempo_real,
 )
 from datetime import date, datetime
-from timeit import default_timer as timer
-import matplotlib.pyplot as plt
-from animacion import generar_datos
 
 # # Tarea 1
-# start = timer()
 # dia = date(2020, 12, 5)
 # num = flujo_personas("logs-conexion.csv", dia)
-# end = timer()
-# print(num, "tiempo flujo_personas: ", end - start)
+# print(num)
 
 # # Tarea 2
-# start = timer()
 # t = triangulacion(
 #     "logs-conexion.csv", "cuartos_espol.csv", "94AE61:70:C6:9B", "1607209224"
 # )
-# end = timer()
-# print(t, "tiempo triangulación:", end - start)
+# print(t)
 
 # # Tarea 3
-# start = timer()
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-001"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-002"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-003"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-004"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-005"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-006"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-007"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-008"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-009"), sep="\n")
-# # print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-010"), sep="\n")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-001")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-002")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-003")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-004")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-005")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-006")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-007")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-008")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-009")
-# alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-010")
-# end = timer()
-# print("tiempo alertas_aforo: ", end - start)
+# print(*alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", "c-010"), sep="\n")
 
-# # Tarea 4
-# lista_personas = [
-#     "04FE31:54:79:C6",
-#     "ACF7F3:AA:D1:B4",
-#     "0022A6:1C:FE:3E",
-#     "20F3A3:C7:5E:E7",
-# ]
-# generador = generar_datos(
-#     "logs-conexion.csv",
-#     "cuartos_espol.csv",
-#     lista_personas,
-#     datetime(2020, 12, 5, 9, 0),
-#     datetime(2020, 12, 5, 10, 0),
-# )
-# print(next(generador))
+# Tarea 4
+dimensiones = {
+    "c-001": {"ancho": (10, 110), "altura": (10, 110)},
+    "c-002": {"ancho": (180, 300), "altura": (10, 110)},
+    "c-003": {"ancho": (370, 460), "altura": (10, 110)},
+    "c-004": {"ancho": (10, 220), "altura": (190, 250)},
+    "c-005": {"ancho": (290, 450), "altura": (190, 250)},
+    "c-006": {"ancho": (530, 630), "altura": (10, 110)},
+    "c-007": {"ancho": (700, 820), "altura": (10, 110)},
+    "c-008": {"ancho": (890, 980), "altura": (10, 110)},
+    "c-009": {"ancho": (520, 730), "altura": (190, 250)},
+    "c-010": {"ancho": (800, 980), "altura": (190, 250)},
+}
+
+lista = [
+    "04FE31:54:79:C6",
+    "ACF7F3:AA:D1:B4",
+    "0022A6:1C:FE:3E",
+    "20F3A3:C7:5E:E7",
+]
+dataset = "logs-conexion.csv"
+cuartos_espol = "cuartos_espol.csv"
+inicio = datetime(2020, 12, 5, 9, 0)
+fin = datetime(2020, 12, 5, 10, 0)
+# generar_animacion(dataset, cuartos_espol, lista, inicio, fin, dimensiones)
 
 # # Tarea 5
-# start = timer()
-# generador = reporte_rango(
+# alertavista(
 #     "logs-conexion.csv",
 #     "cuartos_espol.csv",
-#     datetime(2020, 12, 5, 9, 0),
-#     datetime(2020, 12, 5, 10, 0),
+#     datetime(2020, 12, 5, 12, 0),
+#     datetime(2020, 12, 5, 12, 30),
 # )
-# for minuto in generador:
-#     print(minuto)
-# end = timer()
-# print("tiempo reporte_completo: ", end - start)
 
 
 # # Tarea 6
-# start = timer()
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-001"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-002"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-003"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-004"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-005"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-006"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-007"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-008"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-009"), sep="\n")
-# print(*tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-010"), sep="\n")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-001")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-002")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-003")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-004")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-005")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-006")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-007")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-008")
-# tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-009")
-# generador = tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-010")
-# print(generador)
-# for i in generador:
-#     print(i)
+# alertas_tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-008")
 
-# end = timer()
-# print("tiempo alertas_aforo: ", end - start)
+abierto = True
+while abierto:
+    num_tarea = int(
+        input(
+            """¿Qué tarea desea probar? (ingrese un dígito)
+    Tarea 1: flujo_personas
+    Tarea 2: triangulacion
+    Tarea 3: alertas_aforo
+    Tarea 4: animacion movimiento
+    Tarea 5: contador minuto a minuto
+    Tarea 6: contador theLegion\n
+    """
+        )
+    )
+    if num_tarea == 1:
+        fecha = input("Ingrese una fecha en el formato: YYYY-MM-DD: ")
+        dia = date.fromisoformat(fecha)
+        num = flujo_personas("logs-conexion.csv", dia)
+        print(num)
+    elif num_tarea == 2:
+        mac_cliente = input("Ingrese MAC del cliente: ")
+        timestamp = input("Ingrese timestamp: ")
+        t = triangulacion(
+            "logs-conexion.csv", "cuartos_espol.csv", mac_cliente, timestamp
+        )
+        print(t)
 
-import pygame
-import os
-
-pygame.font.init()
-pygame.mixer.init()
-
-ANCHO, ALTURA = 500, 500
-VENTANA = pygame.display.set_mode((ANCHO, ALTURA))
-pygame.display.set_caption("Aforo")
-
-BLANCO = (255, 255, 255)
-VERDE = (0, 255, 0)
-ROJO = (255, 0, 0)
-FUENTE = pygame.font.SysFont("sans-serif", 40)
-
-FPS = 60
-
-
-def draw_window(bloque):
-    fecha_h, num, aforo, color = bloque
-    if color == "verde":
-        VENTANA.fill(VERDE)
+    elif num_tarea == 3:
+        cuarto = input("Ingrese cuarto: ")
+        print(
+            *alertas_aforo("logs-conexion.csv", "cuartos_espol.csv", cuarto), sep="\n"
+        )
+    elif num_tarea == 4:
+        print("Mostrando reporte desde las 9am hasta 10am")
+        generar_animacion(dataset, cuartos_espol, lista, inicio, fin, dimensiones)
+    elif num_tarea == 5:
+        print("Mostrando reporte desde las 12 hasta 12:30")
+        alertavista(
+            "logs-conexion.csv",
+            "cuartos_espol.csv",
+            datetime(2020, 12, 5, 12, 0),
+            datetime(2020, 12, 5, 12, 30),
+        )
+    elif num_tarea == 6:
+        cuarto = input("Ingrese cuarto: ")
+        alertas_tiempo_real("logs-conexion.csv", "cuartos_espol.csv", cuarto)
     else:
-        VENTANA.fill(ROJO)
-    tiempo = FUENTE.render(fecha_h, 1, BLANCO)
-    numero_personas = FUENTE.render(num, 1, BLANCO)
-    aforo_cuarto = FUENTE.render(aforo, 1, BLANCO)
-    VENTANA.blit(tiempo, ((ANCHO - tiempo.get_width()) / 2, ALTURA / 2 - 150))
-    VENTANA.blit(
-        numero_personas, ((ANCHO - numero_personas.get_width()) / 2, ALTURA / 2 - 100)
-    )
-    VENTANA.blit(
-        aforo_cuarto, ((ANCHO - aforo_cuarto.get_width()) / 2, ALTURA / 2 + 100)
-    )
+        print("El número debe estar entre 1 y 6")
 
-    pygame.display.update()
-
-
-def main():
-    # clock = pygame.time.Clock()
-    run = True
-    generador = tiempo_real("logs-conexion.csv", "cuartos_espol.csv", "c-008")
-    while run:
-        # clock.tick(FPS)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                pygame.quit()
-
-        draw_window(next(generador))
-
-    main()
-
-
-if __name__ == "__main__":
-    main()
+    if input("¿Desea Continuar? (si/no)").lower() == "no":
+        abierto = False
